@@ -2,14 +2,14 @@ version: 2.1
 jobs:
   lint:
     docker:
-      - image: cimg/ruby:3.0.6
+      - image: cimg/ruby:3.1.6
     working_directory: ~/safer_rails_console
     steps:
       - checkout
       - restore_cache:
           keys:
-            - v2-gems-ruby-3.0.6-{{ checksum "safer_rails_console.gemspec" }}-{{ checksum "Gemfile" }}
-            - v2-gems-ruby-3.0.6-
+            - v2-gems-ruby-3.1.6-{{ checksum "safer_rails_console.gemspec" }}-{{ checksum "Gemfile" }}
+            - v2-gems-ruby-3.1.6-
       - run:
           name: Install Gems
           command: |
@@ -18,7 +18,7 @@ jobs:
               bundle clean
             fi
       - save_cache:
-          key: v2-gems-ruby-3.0.6-{{ checksum "safer_rails_console.gemspec" }}-{{ checksum "Gemfile" }}
+          key: v2-gems-ruby-3.1.6-{{ checksum "safer_rails_console.gemspec" }}-{{ checksum "Gemfile" }}
           paths:
             - "vendor/bundle"
             - "gemfiles/vendor/bundle"
@@ -41,6 +41,11 @@ jobs:
           POSTGRES_USER: "circleci"
           POSTGRES_DB: "safer_rails_console_test"
           POSTGRES_HOST_AUTH_METHOD: "trust"
+      - image: cimg/mysql:8.0
+        environment:
+          MYSQL_DATABASE: "safer_rails_console_test"
+          MYSQL_ROOT_HOST: "%"
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
     working_directory: ~/safer_rails_console
     steps:
       - checkout
@@ -61,6 +66,9 @@ jobs:
             - "vendor/bundle"
             - "gemfiles/vendor/bundle"
       - run:
+          name: Wait for Mysql
+          command: dockerize -wait tcp://localhost:3306 -timeout 1m
+      - run:
           name: Run Tests
           command: |
             bundle exec rspec --format RspecJunitFormatter --out $CIRCLE_TEST_REPORTS/rspec/junit.xml --format progress spec
@@ -74,11 +82,15 @@ workflows:
           matrix:
             parameters:
               ruby_version:
-                - 3.0.6
-                - 3.1.4
-                - 3.2.2
-                - 3.3.0
+                - 3.1.6
+                - 3.2.6
+                - 3.3.6
               gemfile:
                 - gemfiles/6.1.gemfile
                 - gemfiles/7.0.gemfile
                 - gemfiles/7.1.gemfile
+                - gemfiles/7.2.gemfile
+                - gemfiles/8.0.gemfile
+            exclude:
+              - ruby_version: 3.1.6
+                gemfile: gemfiles/8.0.gemfile
